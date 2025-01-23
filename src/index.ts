@@ -68,7 +68,7 @@ export default class Unificador extends Plugin {
 			name: "Dividir archivos",
 
 			// Función que se ejecuta al invocar el comando
-			callback: () => this.newPages.newPages(),
+			callback: () => this.newPages.ejecutarProceso(),
 
 			// Configurar atajo de teclado (Ctrl+Shift+A)
 			hotkeys: [

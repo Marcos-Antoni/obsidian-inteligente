@@ -1,5 +1,8 @@
 import { App, Notice, TFile } from "obsidian";
 
+import { TextoService } from "./text";
+import { PaginasService } from "./PaginasService";
+
 /**
  * NewPages gestiona la creación dinámica de páginas en Obsidian
  * basándose en el contenido de archivos con líneas marcadas.
@@ -9,6 +12,8 @@ import { App, Notice, TFile } from "obsidian";
 export default class NewPages {
 	// Referencia a la instancia principal de Obsidian
 	private app: App;
+	private textService: TextoService;
+	private paginasService: PaginasService;
 
 	/**
 	 * Constructor que inicializa la instancia con la aplicación de Obsidian
@@ -17,71 +22,8 @@ export default class NewPages {
 	 */
 	constructor(app: App) {
 		this.app = app;
-	}
-
-	/**
-	 * Extrae líneas que comienzan con asterisco para procesamiento posterior
-	 *
-	 * @param {string} texto - Texto original a filtrar
-	 * @returns {string[]} Líneas que comienzan con asterisco
-	 */
-	private filtrarTexto(texto: string) {
-		return texto
-			.split("\n")
-			.filter((linea) => linea.trim().startsWith("*"));
-	}
-
-	/**
-	 * Crea archivos individuales para cada línea con asterisco
-	 *
-	 * @param {string} titulo - Título base para nombrar las páginas
-	 * @param {string[]} lineasEspeciales - Líneas que comienzan con asterisco
-	 * @returns {Promise<string[] | undefined>} Lista de nombres de archivos creados
-	 */
-	private async crearPaginasIndividuales(
-		titulo: string,
-		lineasEspeciales: string[]
-	) {
-		try {
-			const paginasCreadas: string[] = [];
-
-			lineasEspeciales.forEach((linea, i) => {
-				const contenidoPagina = linea.replace("*", "").trim();
-				const nombreArchivo = `${i + 1}.${titulo}.md`;
-				const rutaCompleta = `${titulo}_paginas/${nombreArchivo}`;
-
-				this.app.vault.create(rutaCompleta, contenidoPagina);
-				paginasCreadas.push(nombreArchivo);
-			});
-
-			return paginasCreadas;
-		} catch (error) {
-			console.error("Error al crear las páginas:", error);
-		}
-	}
-
-	/**
-	 * Reemplaza líneas con asterisco por enlaces wiki numerados
-	 *
-	 * @param {string} texto - Texto original a modificar
-	 * @param {string} titulo - Título base para generar los enlaces
-	 * @returns {string} Texto modificado con enlaces wiki
-	 */
-	private remplazarTexto(texto: string, titulo: string) {
-		let index = 0;
-		const textArray = texto.split("\n");
-
-		return textArray
-			.map((linea) => {
-				linea = linea.trim();
-
-				if (linea.startsWith("*")) {
-					index++;
-					return `[[${titulo}_paginas/${index}.${titulo}.md]]`;
-				}
-				return linea;
-			})
-			.join("\n");
+		this.textService = new TextoService();
+		this.paginasService = new PaginasService(app);
 	}
 
 	/**
@@ -108,8 +50,6 @@ export default class NewPages {
 		const texto = await this.app.vault.read(activeFile);
 		const titulo = activeFile.basename;
 
-		await this.app.vault.createFolder(`${titulo}_paginas`);
-
 		return { texto, titulo };
 	}
 
@@ -121,11 +61,12 @@ export default class NewPages {
 	 * @returns {Promise<string[] | undefined>} Páginas creadas
 	 */
 	private async crearPaginasDesdeTexto(texto: string, titulo: string) {
-		const lineasEspeciales = this.filtrarTexto(texto);
-		const paginasCreadas = await this.crearPaginasIndividuales(
-			titulo,
-			lineasEspeciales
-		);
+		const contenidoDePaginas = this.textService.filtrarTexto(texto);
+		const paginasCreadas =
+			await this.paginasService.crearPaginasIndividuales(
+				titulo,
+				contenidoDePaginas
+			);
 
 		if (!paginasCreadas) {
 			new Notice("Error al crear las páginas");
@@ -141,7 +82,7 @@ export default class NewPages {
 	 *
 	 * @returns {Promise<void>}
 	 */
-	async newPages() {
+	async ejecutarProceso() {
 		try {
 			const activeFile = this.obtenerArchivoActivo();
 			if (!activeFile) return;
@@ -155,9 +96,12 @@ export default class NewPages {
 				titulo
 			);
 
-			const textoModificado = this.remplazarTexto(texto, titulo);
-
 			if (paginasCreadas) {
+				const textoModificado = this.textService.remplazarTexto(
+					texto,
+					paginasCreadas
+				);
+
 				await this.app.vault.modify(activeFile, textoModificado);
 
 				new Notice(textoModificado);
