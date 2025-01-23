@@ -10,10 +10,15 @@ export class TextoService {
 	 * @returns {string[]} Array de textos procesados
 	 */
 	filtrarTexto(texto: string): string[] {
-		return texto
-			.split(this.separador[0])
-			.map((parte) => parte.split(this.separador[1])[0])
-			.filter((parte) => parte.trim() !== "");
+		return (
+			texto
+				.split(this.separador[0])
+				.map((parte) => parte.split(this.separador[1])[0])
+				// elimina partes vacias
+				.filter((parte) => parte.trim() !== "")
+				// elimina el primer elemento
+				.slice(1)
+		);
 	}
 
 	/**
